@@ -1,0 +1,4 @@
+Pinball by ALAN STANKIEWICZ 1982
+
+Left flipper is CTRL, right flipper is SHIFT
+SpaceBar starts play  RUBOUT (backspace) restarts game

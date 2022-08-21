@@ -1,0 +1,27 @@
+ Ridge Cruiser for C1P
+© Stankiewicz & Robinson, Victory Software
+
+You are in a space ship flying down the trench shooting invaders.
+You have limited movement to avoid your enemies, fly too far to 
+the sides and you'll hit the trench walls!  Destroy the incoming ships,
+the further out, the higher the score.  Hit the tranports flying by for
+higher points!
+
+This is a hybrid program that was reconstructed from a PicoDos disk
+It loads in two parts, the machine language portion stored in BASIC
+data statements, and the main program which loads later.
+
+RidgeCruiser.bas contains both parts in one file
+
+Controls are: 
+
+Turrent control U = Up        Y = Up Left
+                M = Down      N = Down Left
+                H = Left      I = Up Right
+                K = Right     , = Down Right
+                J = Fire
+
+Ship controls S = Move Left
+              D = Move Right
+
+
