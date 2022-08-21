@@ -9,7 +9,9 @@ Python dependencies that I know of: PyGame
 
 usage: python main.py [-h] [--filename FILENAME]
 options:
+  
   -h, --help           show this help message and exit
+  
   --filename FILENAME  monitor ROM file to load. Default SYSMON.hex  Optional CEGMON.hex
   
 The emulator supports the loading and saving of basic programs to the TAPEs folder. (Very simple implementation at this point.)
