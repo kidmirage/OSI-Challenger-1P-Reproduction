@@ -179,14 +179,23 @@ class Emulator:
                         self.cassette.load()
                     elif event.key == pygame.K_F2:
                         self.cassette.save()
+                    elif event.key == pygame.K_F3:
+                        for i in range(0, 255):
+                            self.mmu.memory[self.VIDEO_ADDRESS+256+i] = i
                     else:
-                        self.keyboard.pressKey(event.key)
+                        try: 
+                            self.keyboard.pressKey(ord(event.unicode))
+                        except:
+                            self.keyboard.pressKey(event.key)
                 elif event.type == pygame.KEYUP:
                     if event.key == pygame.K_CAPSLOCK:
                         if not pygame.key.get_mods() & pygame.KMOD_CAPS > 0:
                             self.keyboard.releaseKey(event.key) 
                     else:
-                        self.keyboard.releaseKey(event.key)
+                        try:
+                            self.keyboard.releaseKey(ord(event.unicode))
+                        except:
+                            self.keyboard.releaseKey(event.key)  
   
             # This will run the CPU for about 4K cycles.
             for _ in range(1000):

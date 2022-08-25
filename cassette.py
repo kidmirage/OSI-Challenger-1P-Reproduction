@@ -42,7 +42,7 @@ class Cassette:
                     b = self.load_buffer[self.load_index]
                     self.load_index += 1
                     if self.load_index == self.load_buffer_len:
-                        # print("eof")
+                        # EOF
                         self.acia_status = self.TX_READY
                     return b
             return 0
@@ -50,7 +50,7 @@ class Cassette:
                         
     def writeByte(self, addr, b):
         if addr == 0xF000:
-            # print("CONTROL", b)
+            # Control character.
             pass
         elif addr == 0xF001:
             if self.acia_status and self.TX_READY > 0 and self.save_filename != None:

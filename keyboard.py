@@ -20,6 +20,7 @@ class Keyboard:
     KEY_ESC = pygame.K_ESCAPE
     KEY_REPEAT = pygame.K_END
     KEY_RESET = pygame.K_DELETE
+    KEY_COLON = pygame.K_COLON
 
     """
      * There's no real storage associated with the keyboard, just an 8x8 matrix
@@ -32,7 +33,7 @@ class Keyboard:
      *
      *  The keyboard matrix has the following layout:
      *
-     *          C7    C6    C5    C4    C3    C2    C1    C0
+     *        C7    C6    C5    C4    C3    C2    C1    C0
      *           |     |     |     |     |     |     |     |
      *         ! |   " |   # |   $ |   % |   & |   ' |     |
      *         1 |   2 |   3 |   4 |   5 |   6 |   7 |     |
@@ -53,7 +54,7 @@ class Keyboard:
      *         X |   C |   V |   B |   N |   M |   , |     |
      *  R2 ------+-----+-----+-----+-----+-----+-----+-----+
      *           |     |     |     |   ? |   + |   @ |     |
-     *         Q |   A |   Z |space|   / |    |   P |     |
+     *         Q |   A |   Z |space|   / |     |   P |     |
      *  R1 ------+-----+-----+-----+-----+-----+-----+-----+
      *      (3)  |     |(4)  |     |     | left|right|SHIFT|
      *           | CTRL|     |     |     |SHIFT|SHIFT| LOCK|
@@ -78,7 +79,10 @@ class Keyboard:
         self.matrix = bytearray(8)
         for i in range (len(self.matrix)):
             self.matrix[i] = 0xff
-
+            
+        # Define keys that need to have shift applied.
+        self.shift_keys = {ord("="), ord("\'")}
+        
         # Define the supported keys
         self.keys = {}
         
@@ -92,8 +96,8 @@ class Keyboard:
         self.addKey('8', '(', 6, 7)
         self.addKey('9', ')', 6, 6)
         self.addKey('0', '@', 6, 5)     # Note: Shift-0 decodes as @
-        self.addKey(':', '*', 6, 4)
-        self.addKey('-', '=', 6, 3)
+        self.addKey(';', 0, 1, 2)
+        self.addKey('-', "=", 6, 3)
         self.addKey(self.KEY_RUBOUT, 0, 6, 2)
         self.addKey('.', '>', 5, 7)
         self.addKey('L', 'l', 5, 6)  
@@ -133,7 +137,7 @@ class Keyboard:
         self.addKey(self.KEY_LCTRL, 0, 0, 6)
         self.addKey(self.KEY_RCTRL, 0, 0, 6)
         self.addKey('\\', 0, 5, 6)
-        self.addKey('[', 0, 3, 1)
+        self.addKey('[', 0, 6, 4)
         self.addKey(']', 0, 2, 2)
         self.addKey('_', 0, 5, 5)
         self.addKey(self.KEY_LINEFEED, 0, 5, 4)
@@ -150,19 +154,17 @@ class Keyboard:
         key = [row, col]
         if k1 != 0:
             try:
-                self.keys[ord(k1)] = key
-                # print(k1, bin(~(1 << col))[2:].zfill(8))
+                self.keys[ord(k1)] = key              
             except:
                 self.keys[k1] = key
-                # print(k1, bin(~(1 << col))[2:].zfill(8)) 
+                
                 
         if k2 != 0:
             try:
-                self.keys[ord(k2)] = key
-                # print(k2, bin(~(1 << col | 2))[2:].zfill(8))
+                self.keys[ord(k2)] = key              
             except:
                 self.keys[k2] = key
-                # print(k2, bin(~(1 << col | 2))[2:].zfill(8))
+                
 
     def readByte(self):
         # Returns the column values for any row that has been set to a 0
@@ -191,11 +193,14 @@ class Keyboard:
             k = self.keys[key]
             if k != None:
                 self.matrix[k[0]] &= ~(1 << k[1])
+                if key in self.shift_keys:
+                    self.matrix[0] &= 0b11111101
+                
 
     def releaseKey(self, key): 
         if key in self.keys:
             k = self.keys[key]
             if k != None:
                 self.matrix[k[0]] |= 1 << k[1]
-
-
+                if key in self.shift_keys:
+                    self.matrix[0] |= 0b00000010
