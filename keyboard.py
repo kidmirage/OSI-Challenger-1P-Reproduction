@@ -137,7 +137,7 @@ class Keyboard:
         self.addKey(self.KEY_LCTRL, 0, 0, 6)
         self.addKey(self.KEY_RCTRL, 0, 0, 6)
         self.addKey('\\', 0, 5, 6)
-        self.addKey('[', 0, 6, 4)
+        self.addKey('[', '*', 6, 4)    # Note implements the : key.
         self.addKey(']', 0, 2, 2)
         self.addKey('_', 0, 5, 5)
         self.addKey(self.KEY_LINEFEED, 0, 5, 4)
