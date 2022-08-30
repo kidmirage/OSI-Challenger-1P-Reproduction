@@ -1,4 +1,5 @@
 import pygame
+import os
 from cpu import CPU
 from mmu import MMU
 from keyboard import Keyboard
@@ -48,6 +49,7 @@ class Emulator:
                 (self.IO_ADDRESS, 6144), # Character Generator.
                 (self.CASSETTE_ADDRESS, 256, False, None, 0, self.cassette.callback),
                 (self.MONITOR_ADDRESS, 2048, True, monitor) # Advanced Monitor.
+                
         ])
         
         # Create the CPU with the MMU and the starting program counter address.
@@ -149,6 +151,192 @@ class Emulator:
             if x == self.character_width*32:
                 x = 0;
                 y += self.character_height
+        pygame.transform.scale(self.setup, self.show_size, dest_surface=self.screen)
+        pygame.display.update()
+        
+    
+    def write_text(self, memory, address, x, y, text):
+        offset = y * 32 + x
+        for i in range(0, len(text)):
+            memory[address+offset+i] = ord(text[i])
+            
+    def save_popup(self, memory, address):
+        
+        # Save the screen memory.
+        save_memory = memory[address:address+1024]
+        
+        # Clear screen memory.
+        memory[address:address+1024] = bytearray([32]*1024)
+        
+        # Screen offsets.
+        MAX_NAME_SIZE = 20
+        filename = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        filename_str = ""
+        name_offset = 0
+        NAME_ROW = 4
+        NAME_COL = 9
+        
+        # Show the static text.
+        self.write_text(memory, address, 4, 1, "ENTER THE FILE TO SAVE TO")
+        self.write_text(memory, address, 4, NAME_ROW, "NAME:_")
+        
+        # Show the screen to the user.
+        self._refresh()
+        
+        valid_chars = "-_.() "
+   
+        # Wait for a key.
+        no_key = True
+        over_write = False
+        while no_key:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    no_key = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        no_key = False
+                    elif event.key == pygame.K_RETURN:
+                        filename_str = "./TAPEs/"
+                        for i in filename:
+                            if i != 0:
+                                filename_str += i
+                            else:
+                                break
+                        # Check to make sure the filename is not in use.
+                        if not filename_str.lower().endswith(".bas"):
+                            filename_str += ".bas"
+                        if os.path.exists(filename_str):
+                            self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, " ")
+                            self.write_text(memory, address, 4, 10, filename_str[8:] + " exists." )
+                            self.write_text(memory, address, 4, 11, "Overwrite? [Y/N]_")
+                            self._refresh()
+                            over_write = True
+                        else:
+                            self.cassette.save(filename_str)
+                            no_key = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        if name_offset > 0:
+                            self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, " ")
+                            filename[name_offset] = 0
+                            name_offset -= 1
+                            self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, "_")
+                            self._refresh()
+                    else:
+                        try:
+                            key = chr(ord(event.unicode))
+                        except:
+                            break
+                        if over_write:
+                            # Just looking for a Y. Any other character skips.
+                            if key == "Y" or key == "y":
+                                self.cassette.save(filename_str)
+                            no_key = False
+                        elif str.isalpha(key) or str.isdigit(key) or key in valid_chars:
+                            if name_offset < MAX_NAME_SIZE:
+                                # Valid filename character.
+                                self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, key)
+                                filename[name_offset] = key
+                                name_offset += 1
+                                self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, "_")
+                                self._refresh()
+        # Restore the screen.
+        memory[address:address+1024] = save_memory
+        self._refresh()
+        
+    def load_popup(self, memory, address):
+        
+        # Max number of files to show in the list.
+        MAX_FILES = 15
+        FIRST_FILE_ROW = 5
+        
+        # Save the screen memory.
+        save_memory = memory[address:address+1024]
+        
+        # Clear screen memory.
+        memory[address:address+1024] = bytearray([32]*1024)
+        
+        # Get a list of the .BAS files in the TAPEs folder.
+        basic_files = []
+        for file in os.listdir("./TAPEs"):
+            if file.lower().endswith(".bas"):
+                basic_files.append(file)
+                
+        # Show the static text.
+        self.write_text(memory, address, 4, 1, "SELECT THE FILE TO LOAD")
+        self.write_text(memory, address, 5, 24, ",<       PREVIOUS FILE")
+        self.write_text(memory, address, 5, 25, ".>       NEXT FILE")
+        self.write_text(memory, address, 5, 26, "RETURN   SELECT FILE")
+        self.write_text(memory, address, 5, 27, "ESC      CANCEL")
+        
+        # Show the initial list of files on the screen.
+        x = 5
+        y = FIRST_FILE_ROW 
+        for file in basic_files:
+            self.write_text(memory, address, x, y, file)
+            y += 1
+            if y-FIRST_FILE_ROW == MAX_FILES:
+                break
+        
+        # Initialize list controls.
+        files_offset = 0
+        selected_file = 0
+        last_file = MAX_FILES
+        if last_file > len(basic_files):
+            last_file = len(basic_files)
+            
+        # Show the selected file.
+        self.write_text(memory, address, 4, FIRST_FILE_ROW, ">")
+        
+        # Show the screen to the user.
+        self._refresh()
+         
+        # Wait for a key.
+        no_key = True
+        while no_key:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    no_key = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        no_key = False
+                    elif event.key == pygame.K_RETURN:
+                        self.cassette.load(basic_files[files_offset+selected_file])
+                        no_key = False
+                    elif event.key == pygame.K_PERIOD:
+                        self.write_text(memory, address, 4, FIRST_FILE_ROW+selected_file, " ")
+                        if selected_file < last_file-1:   
+                            selected_file += 1
+                        elif MAX_FILES + files_offset < len(basic_files):
+                            # Adjust the file list.
+                            x = 5
+                            y = FIRST_FILE_ROW
+                            files_offset += 1
+                            for i in range(files_offset,files_offset+MAX_FILES):
+                                memory[address+32*y:address+32*y+32] = bytearray([32]*32)
+                                self.write_text(memory, address, x, y, basic_files[i])
+                                y += 1
+                        self.write_text(memory, address, 4, FIRST_FILE_ROW+selected_file, ">")
+                        self._refresh()
+                    elif event.key == pygame.K_COMMA:
+                        self.write_text(memory, address, 4, FIRST_FILE_ROW+selected_file, " ")
+                        if selected_file > 0:   
+                            selected_file -= 1
+                        elif files_offset > 0:
+                            # Adjust the file list.
+                            x = 5
+                            y = FIRST_FILE_ROW
+                            files_offset -= 1
+                            for i in range(files_offset,files_offset+MAX_FILES):
+                                memory[address+32*y:address+32*y+32] = bytearray([32]*32)
+                                self.write_text(memory, address, x, y, basic_files[i])
+                                y += 1 
+                            
+                        self.write_text(memory, address, 4, FIRST_FILE_ROW+selected_file, ">")
+                        self._refresh()
+        
+        # Restore the screen.
+        memory[address:address+1024] = save_memory
+        self._refresh()
                 
     def run(self):
         """
@@ -176,9 +364,9 @@ class Emulator:
                         # Restart the monitor.
                         self.cpu.r.pc = 0xff00
                     elif event.key == pygame.K_F1:
-                        self.cassette.load()
+                        self.load_popup(self.mmu.memory, self.VIDEO_ADDRESS)
                     elif event.key == pygame.K_F2:
-                        self.cassette.save()
+                        self.save_popup(self.mmu.memory, self.VIDEO_ADDRESS)
                     elif event.key == pygame.K_F3:
                         for i in range(0, 255):
                             self.mmu.memory[self.VIDEO_ADDRESS+256+i] = i
@@ -201,8 +389,5 @@ class Emulator:
             for _ in range(1000):
                 self.cpu.step()
             
-    
             self._refresh()
-            pygame.transform.scale(self.setup, self.show_size, dest_surface=self.screen)
-            pygame.display.update()
                 

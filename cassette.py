@@ -62,42 +62,28 @@ class Cassette:
             self.writeByte(addr, value)
         else:
             return self.readByte(addr)
-        
-    def load(self):
-        
-        # Only BASIC file accepted at this point.
-        filetypes = [
-        ('BASIC files', '*.BAS')
-        ]
-        
-        # Get the name of the file to load.
-        root = tk.Tk()
-        root.withdraw()
-        filename = fd.askopenfilename(
-            title='Load a BASIC file',
-            initialdir='./TAPES',
-            filetypes=filetypes)
-        root.destroy()
+       
+    def load(self, filename):
         
         # If a file name returned read the file into the load buffer and 
         # setup the load index.
         if filename:
-            f = open(filename,'rb')
+            f = open("./TAPEs/"+filename,'rb')
             self.load_buffer = f.read()
             self.load_index = 0
             self.load_buffer_len = len(self.load_buffer)
             self.acia_status = self.RX_READY
             f.close()
 
-    def save(self):
+    def save(self, filename):
         
-        # Get a file name to save too.
-        root = tk.Tk()
-        root.withdraw()
-        self.save_filename = fd.asksaveasfilename(title='Save as BASIC file', defaultextension=".BAS")
-        if self.save_filename != "":
+        if filename != "":
+            
+            # Remember the filename and enable the TX "buffer".
+            self.save_filename = filename
+            self.acia_status = self.TX_READY
+
             # Create an empty file.
             f = open(self.save_filename,'wb')
             f.close()
-        self.acia_status = self.TX_READY
-        root.destroy()
+            
