@@ -179,6 +179,8 @@ class Emulator:
         # Show the static text.
         self.write_text(memory, address, 4, 1, "ENTER THE FILE TO SAVE TO")
         self.write_text(memory, address, 4, NAME_ROW, "NAME:_")
+        self.write_text(memory, address, 4, 10, "TYPE THE FILE NAME")
+        self.write_text(memory, address, 4, 11, "THEN PRESS RETURN")
         
         # Show the screen to the user.
         self._refresh()
@@ -207,7 +209,7 @@ class Emulator:
                             filename_str += ".bas"
                         if os.path.exists(filename_str):
                             self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, " ")
-                            self.write_text(memory, address, 4, 10, filename_str[8:] + " exists." )
+                            self.write_text(memory, address, 4, 10, filename_str[8:] + " exists.                    " )
                             self.write_text(memory, address, 4, 11, "Overwrite? [Y/N]_")
                             self._refresh()
                             over_write = True
