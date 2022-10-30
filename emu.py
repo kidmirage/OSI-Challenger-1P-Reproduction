@@ -14,10 +14,11 @@ class Emulator:
     RAM_ADDRESS = 0x0000
     BASIC_ADDRESS = 0xA000
     VIDEO_ADDRESS = 0xD000
-    CHARSET_ADDRESS = 0xD400
+    CHARSET_ADDRESS = 0xD800
     KEYBOARD_ADDRESS = 0xDF00
     IO_ADDRESS = 0xE000
     CASSETTE_ADDRESS = 0xF000
+    MEMORY_BLOCK = 0xF100
     MONITOR_ADDRESS = 0xF800
     
     BLACK = 0x000000
@@ -25,6 +26,10 @@ class Emulator:
     GREEN = 0x00FF00
     AMBER = 0xFFBF00
     CAPTION_FORMAT = 'Challenger 1P ({})'
+    
+    VIDEO_MEMORY_SIZE = 1024
+    VIDEO_ROW_SIZE = 32
+    VIDEO_NUM_ROWS = 32
     
     def __init__(self, path=None):
         # Manage the transformation between actual key presses and what the
@@ -38,17 +43,28 @@ class Emulator:
         monitor = open("ROMs/"+path, "r")  # 2K Monitor Program.
         charset = open("ROMS/charset.hex", "r")  # 2K character generator.
         
+        # Set the screen width and keyboard read (inverted or normal).
+        if path == "cwmhigh.hex":
+            self.VIDEO_ROW_SIZE = 64
+            self.VIDEO_MEMORY_SIZE = 2048
+            self.keyboard.INVERT_KEY = True
+            self.CASSETTE_ADDRESS = 0xFC00
+            self.cassette.CONTROL_STATUS = 0xFC00
+            self.cassette.READ_WRITE = 0xFC01
+        
+        
         # Define blocks of memory.  Each tuple is
         # (start_address, length, readOnly=True, value=None, valueOffset=0)
         self.mmu = MMU([
                 (self.RAM_ADDRESS, 40960), # Create RAM with 40K.
                 (self.BASIC_ADDRESS, 8192, True, basic), # Basic.
-                (self.VIDEO_ADDRESS, 1024), # Video Memory.
+                (self.VIDEO_ADDRESS, self.VIDEO_MEMORY_SIZE), # Video Memory.
                 (self.CHARSET_ADDRESS, 2048, True, charset), # Character Generator.
-                (self.KEYBOARD_ADDRESS, 256, False, None, 0, self.keyboard.callback),
-                (self.IO_ADDRESS, 6144), # Character Generator.
-                (self.CASSETTE_ADDRESS, 256, False, None, 0, self.cassette.callback),
-                (self.MONITOR_ADDRESS, 2048, True, monitor) # Advanced Monitor.
+                (self.IO_ADDRESS, 6144), # Memory mapped IO
+                (self.MEMORY_BLOCK, 1792), # Memory used by 4P
+                (self.MONITOR_ADDRESS, 2048, True, monitor), # Advanced Monitor.
+                (self.KEYBOARD_ADDRESS, 2, False, None, 0, self.keyboard.callback), # Keyboard Control.
+                (self.CASSETTE_ADDRESS, 2, False, None, 0, self.cassette.callback) # Cassette Control.
                 
         ])
         
@@ -58,8 +74,8 @@ class Emulator:
         # Class variables.
         self.character_width = 8
         self.character_height = 8                       
-        self.display_height = self.character_height * 32
-        self.display_width = self.character_width * 32
+        self.display_height = self.character_height * self.VIDEO_NUM_ROWS
+        self.display_width = self.character_width * self.VIDEO_ROW_SIZE
         self.show_size = (self.display_width*2, self.display_height*2)
         self.current_display_line = 0
         self.cursor_position = -1
@@ -114,12 +130,12 @@ class Emulator:
         self.screen.fill(self.BLACK)
        
         # Define a buffer with the current screen contents.
-        self.screen_buffer = bytearray(1024)
+        self.screen_buffer = bytearray(self.VIDEO_MEMORY_SIZE)
         
        
     # Blit the character passed to the display screen at the coordinates passed.
     def _blit_character(self, c, x, y):
-        buffer_pos = int(x/self.character_width) + int((y/self.character_height)*32)
+        buffer_pos = int(x/self.character_width) + int((y/self.character_height)*self.VIDEO_ROW_SIZE)
         buffer_c = self.screen_buffer[buffer_pos]
         if buffer_c != c:
             # Only blit the character to the screen if it's different than the current one.
@@ -133,14 +149,14 @@ class Emulator:
     # Update the screen with the characters from the shared display memory.
     def _refresh(self):
         """
-        Draw the 32 x 32 text array on the screen.
+        Draw the video memory text array on the screen.
 
         """
        
         # Display the whole screen.
         x = 0
         y = 0
-        for i in range(self.VIDEO_ADDRESS, self.VIDEO_ADDRESS+1024):
+        for i in range(self.VIDEO_ADDRESS, self.VIDEO_ADDRESS+self.VIDEO_MEMORY_SIZE):
             c = self.mmu.memory[i]
             
             # Blit the character to the display.
@@ -148,7 +164,7 @@ class Emulator:
 
             # Get ready for the next character.
             x += self.character_width;
-            if x == self.character_width*32:
+            if x == self.character_width*self.VIDEO_ROW_SIZE:
                 x = 0;
                 y += self.character_height
         pygame.transform.scale(self.setup, self.show_size, dest_surface=self.screen)
@@ -156,17 +172,17 @@ class Emulator:
         
     
     def write_text(self, memory, address, x, y, text):
-        offset = y * 32 + x
+        offset = y * self.VIDEO_ROW_SIZE + x
         for i in range(0, len(text)):
             memory[address+offset+i] = ord(text[i])
             
     def save_popup(self, memory, address):
         
         # Save the screen memory.
-        save_memory = memory[address:address+1024]
+        save_memory = memory[address:address+self.VIDEO_MEMORY_SIZE]
         
         # Clear screen memory.
-        memory[address:address+1024] = bytearray([32]*1024)
+        memory[address:address+self.VIDEO_MEMORY_SIZE] = bytearray([32]*self.VIDEO_MEMORY_SIZE)
         
         # Screen offsets.
         MAX_NAME_SIZE = 20
@@ -242,7 +258,7 @@ class Emulator:
                                 self.write_text(memory, address, NAME_COL+name_offset, NAME_ROW, "_")
                                 self._refresh()
         # Restore the screen.
-        memory[address:address+1024] = save_memory
+        memory[address:address+self.VIDEO_MEMORY_SIZE] = save_memory
         self._refresh()
         
     def load_popup(self, memory, address):
@@ -252,10 +268,10 @@ class Emulator:
         FIRST_FILE_ROW = 5
         
         # Save the screen memory.
-        save_memory = memory[address:address+1024]
+        save_memory = memory[address:address+self.VIDEO_MEMORY_SIZE]
         
         # Clear screen memory.
-        memory[address:address+1024] = bytearray([32]*1024)
+        memory[address:address+self.VIDEO_MEMORY_SIZE] = bytearray([32]*self.VIDEO_MEMORY_SIZE)
         
         # Get a list of the .BAS files in the TAPEs folder.
         basic_files = []
@@ -314,7 +330,7 @@ class Emulator:
                             y = FIRST_FILE_ROW
                             files_offset += 1
                             for i in range(files_offset,files_offset+MAX_FILES):
-                                memory[address+32*y:address+32*y+32] = bytearray([32]*32)
+                                memory[address+self.VIDEO_ROW_SIZE*y:address+self.VIDEO_ROW_SIZE*y+self.VIDEO_ROW_SIZE] = bytearray([32]*self.VIDEO_ROW_SIZE)
                                 self.write_text(memory, address, x, y, basic_files[i])
                                 y += 1
                         self.write_text(memory, address, 4, FIRST_FILE_ROW+selected_file, ">")
@@ -329,7 +345,7 @@ class Emulator:
                             y = FIRST_FILE_ROW
                             files_offset -= 1
                             for i in range(files_offset,files_offset+MAX_FILES):
-                                memory[address+32*y:address+32*y+32] = bytearray([32]*32)
+                                memory[address+self.VIDEO_ROW_SIZE*y:address+self.VIDEO_ROW_SIZE*y+self.VIDEO_ROW_SIZE] = bytearray([32]*self.VIDEO_ROW_SIZE)
                                 self.write_text(memory, address, x, y, basic_files[i])
                                 y += 1 
                             
@@ -337,7 +353,7 @@ class Emulator:
                         self._refresh()
         
         # Restore the screen.
-        memory[address:address+1024] = save_memory
+        memory[address:address+self.VIDEO_MEMORY_SIZE] = save_memory
         self._refresh()
                 
     def run(self):

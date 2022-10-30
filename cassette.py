@@ -1,6 +1,3 @@
-import tkinter as tk
-import tkinter.filedialog as fd
-
 # The cassette is mapped into a 256 byte block of memory at F000-F3FF, although it
 #  only uses the first two bytes. 
 #
@@ -32,11 +29,11 @@ class Cassette:
         
     def readByte(self, addr):
         # Read the RX and TX status.
-        if addr == 0xF000:
+        if addr == self.CONTROL_STATUS:
             return self.acia_status
  
         # Read the next byte from the file to load.
-        elif addr == 0xF001:
+        elif addr == self.READ_WRITE:
             if self.acia_status & self.RX_READY > 0:
                 if self.load_index < self.load_buffer_len:
                     b = self.load_buffer[self.load_index]
@@ -49,10 +46,10 @@ class Cassette:
                 
                         
     def writeByte(self, addr, b):
-        if addr == 0xF000:
+        if addr == self.CONTROL_STATUS:
             # Control character.
             pass
-        elif addr == 0xF001:
+        elif addr == self.READ_WRITE:
             if self.acia_status and self.TX_READY > 0 and self.save_filename != None:
                 with open(self.save_filename, 'a') as f:
                     f.write(chr(b))

@@ -21,6 +21,8 @@ class Keyboard:
     KEY_REPEAT = pygame.K_END
     KEY_RESET = pygame.K_DELETE
     KEY_COLON = pygame.K_COLON
+    
+    INVERT_KEY = False
 
     """
      * There's no real storage associated with the keyboard, just an 8x8 matrix
@@ -182,11 +184,16 @@ class Keyboard:
         
     def callback(self, addr, value):
         if value != None:
-            self.writeByte(value)
+            if self.INVERT_KEY == True:
+                self.writeByte(value^0xFF)
+            else:
+                self.writeByte(value)
         else:
-            return self.readByte()
+            if self.INVERT_KEY == True:
+                return self.readByte()^0xFF
+            else:
+                return self.readByte()
             
-
     # Handle key presses and releases.
     def pressKey(self, key):
         if key in self.keys:

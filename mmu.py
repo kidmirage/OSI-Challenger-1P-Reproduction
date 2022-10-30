@@ -48,7 +48,7 @@ class MMU:
     def readonly(self, addr, value=None):
         if value != None:
             # Trying to write. Just post a message.
-            print("Trying to write to a read only address:", addr)
+            print("Trying to write to a read only address:", hex(addr), hex(value))
         else:
             # Trying to read. Just go ahead.
             return self.memory[addr]        
@@ -131,6 +131,7 @@ class MMU:
             return self.callbacks[self.memmap[addr]](addr, None)
         else:
             return self.memory[addr]
+        
 
     def readWord(self, addr):
         return (self.read(addr+1) << 8) + self.read(addr)
