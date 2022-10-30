@@ -12,7 +12,10 @@ options:
   
   -h, --help           show this help message and exit
   
-  --filename FILENAME  monitor ROM file to load. Default SYSMON.hex  Optional CEGMON.hex
+  --filename FILENAME  monitor ROM file to load. Default synmon.hex  Optional cegmon.hex, cwmhigh.hex.
+                       NOTE: If you select the cwmhigh.hex monitor the display will be set to 64x16 characters. The default is 32x32
+                             chracter of which only the middle 24x24 is actually used.
+  
   
 The emulator supports the loading and saving of basic programs to the TAPEs folder. (Very simple implementation at this point.)
 - To load a basic program press F1 and select the file to load from the dialog that pops up. Then enter the LOAD command at the > prompt.
