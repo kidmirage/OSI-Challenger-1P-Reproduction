@@ -12,7 +12,7 @@ options:
   
   -h, --help           show this help message and exit
   
-  --filename FILENAME  monitor ROM file to load. Default synmon.hex  Optional cegmon.hex, cwmhigh.hex.
+  --filename FILENAME  monitor ROM file to load. Default cegmon.hex  Optional synmon.hex, cwmhigh.hex.
                        NOTE: If you select the cwmhigh.hex monitor the display will be set to 64x16 characters. The default is 32x32
                              chracter of which only the middle 24x24 is actually used.
   
