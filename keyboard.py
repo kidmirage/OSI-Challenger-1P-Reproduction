@@ -21,8 +21,6 @@ class Keyboard:
     KEY_REPEAT = pygame.K_END
     KEY_RESET = pygame.K_DELETE
     KEY_COLON = pygame.K_COLON
-    
-    INVERT_KEY = False
 
     """
      * There's no real storage associated with the keyboard, just an 8x8 matrix
@@ -71,6 +69,8 @@ class Keyboard:
      """
 
     keys = []
+    
+    INVERT_KEY = False
 
     def __init__(self):
         self.kbport = 0xff   # Default is to return nothing.
@@ -149,6 +149,13 @@ class Keyboard:
 
         # Start with SHIFTKOCK pressed
         self.pressKey(self.KEY_SHIFTLOCK)
+        
+    # Dump the matrix.
+    def dumpMatrix(self, label, key):
+        print(label,key,end=" ")
+        for i in range (len(self.matrix)):
+            print(bin(self.matrix[i]), end=" ")
+        print()
        
     
     # Add details of a key.
@@ -194,6 +201,7 @@ class Keyboard:
             else:
                 return self.readByte()
             
+
     # Handle key presses and releases.
     def pressKey(self, key):
         if key in self.keys:
@@ -202,7 +210,6 @@ class Keyboard:
                 self.matrix[k[0]] &= ~(1 << k[1])
                 if key in self.shift_keys:
                     self.matrix[0] &= 0b11111101
-                
 
     def releaseKey(self, key): 
         if key in self.keys:

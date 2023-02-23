@@ -5,6 +5,7 @@ from mmu import MMU
 from keyboard import Keyboard
 from cassette import Cassette
 
+
 class Emulator:
     """
     
@@ -31,6 +32,7 @@ class Emulator:
     VIDEO_ROW_SIZE = 32
     VIDEO_NUM_ROWS = 32
     
+    
     def __init__(self, path=None):
         # Manage the transformation between actual key presses and what the
         #  Monitor program is expecting.
@@ -38,10 +40,14 @@ class Emulator:
         
         # Manage the ACIA cassette deck.
         self.cassette = Cassette()
+    
+        # Remember what is currently showing on the screen.
+        self.video_cache = bytearray(self.VIDEO_MEMORY_SIZE)
         
-        basic = open("ROMS/basic.hex", "r")  # 8K MS Basic.
-        monitor = open("ROMs/"+path, "r")  # 2K Monitor Program.
-        charset = open("ROMS/charset.hex", "r")  # 2K character generator.
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        basic = open(dir_path+"/ROMs/basic.hex", "r")  # 8K MS Basic.
+        monitor = open(dir_path+"/ROMs/"+path, "r")  # 2K Monitor Program.
+        charset = open(dir_path+"/ROMs/charset.hex", "r")  # 2K character generator.
         
         # Set the screen width and keyboard read (inverted or normal).
         if path == "cwmhigh.hex":
@@ -51,6 +57,7 @@ class Emulator:
             self.CASSETTE_ADDRESS = 0xFC00
             self.cassette.CONTROL_STATUS = 0xFC00
             self.cassette.READ_WRITE = 0xFC01
+            self.video_cache = bytearray(self.VIDEO_MEMORY_SIZE)
         
         
         # Define blocks of memory.  Each tuple is
@@ -153,22 +160,32 @@ class Emulator:
 
         """
        
-        # Display the whole screen.
+        # Display the whole screen if any changes have been made.
         x = 0
         y = 0
+        changed = False
         for i in range(self.VIDEO_ADDRESS, self.VIDEO_ADDRESS+self.VIDEO_MEMORY_SIZE):
             c = self.mmu.memory[i]
             
-            # Blit the character to the display.
-            self._blit_character(c,x,y)
+            if c != self.video_cache[i-self.VIDEO_ADDRESS]:
+                
+                # Blit the character to the display.
+                self._blit_character(c,x,y)
+                
+                # Remember that the screen has been uopdated and what it was changed to.
+                self.video_cache[i-self.VIDEO_ADDRESS] = c
+                changed = True
+                
 
             # Get ready for the next character.
             x += self.character_width;
             if x == self.character_width*self.VIDEO_ROW_SIZE:
                 x = 0;
                 y += self.character_height
-        pygame.transform.scale(self.setup, self.show_size, dest_surface=self.screen)
-        pygame.display.update()
+                
+        if changed == True:
+            pygame.transform.scale(self.setup, self.show_size, self.screen)
+            pygame.display.update()
         
     
     def write_text(self, memory, address, x, y, text):
@@ -214,7 +231,7 @@ class Emulator:
                     if event.key == pygame.K_ESCAPE:
                         no_key = False
                     elif event.key == pygame.K_RETURN:
-                        filename_str = "./TAPEs/"
+                        filename_str = os.path.dirname(os.path.realpath(__file__))+"/TAPEs/"
                         for i in filename:
                             if i != 0:
                                 filename_str += i
@@ -275,7 +292,7 @@ class Emulator:
         
         # Get a list of the .BAS files in the TAPEs folder.
         basic_files = []
-        for file in os.listdir("./TAPEs"):
+        for file in os.listdir("TAPEs"):
             if file.lower().endswith(".bas"):
                 basic_files.append(file)
                 
@@ -374,7 +391,9 @@ class Emulator:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.VIDEOEXPOSE:
+                    pygame.display.update()
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_CAPSLOCK:
                         if pygame.key.get_mods() & pygame.KMOD_CAPS > 0:
                             self.keyboard.pressKey(event.key) 
@@ -389,19 +408,27 @@ class Emulator:
                         for i in range(0, 255):
                             self.mmu.memory[self.VIDEO_ADDRESS+256+i] = i
                     else:
-                        try: 
-                            self.keyboard.pressKey(ord(event.unicode))
-                        except:
-                            self.keyboard.pressKey(event.key)
+                        if event.mod & (self.keyboard.KEY_LCTRL | self.keyboard.KEY_RCTRL) > 0:
+                            key = event.key
+                        else:
+                            try:
+                                key = ord(event.unicode)
+                            except:
+                                key = event.key
+                        self.keyboard.pressKey(key)
                 elif event.type == pygame.KEYUP:
                     if event.key == pygame.K_CAPSLOCK:
                         if not pygame.key.get_mods() & pygame.KMOD_CAPS > 0:
                             self.keyboard.releaseKey(event.key) 
                     else:
-                        try:
-                            self.keyboard.releaseKey(ord(event.unicode))
-                        except:
-                            self.keyboard.releaseKey(event.key)  
+                        if event.mod & (self.keyboard.KEY_LCTRL | self.keyboard.KEY_RCTRL) > 0:
+                            key = event.key
+                        else:
+                            try:
+                                key = ord(event.unicode)
+                            except:
+                                key = event.key
+                        self.keyboard.releaseKey(key)  
   
             # This will run the CPU for about 4K cycles.
             for _ in range(1000):

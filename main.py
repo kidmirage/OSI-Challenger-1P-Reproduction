@@ -7,7 +7,7 @@ def main():
     arg_parser.add_argument('--filename', help='ROM file')
     args = arg_parser.parse_args()
 
-    filename = args.filename if args.filename else 'synmon.hex'
+    filename = args.filename if args.filename else 'cegmon.hex'
     emu = Emulator(path=filename)
     emu.run()
 
