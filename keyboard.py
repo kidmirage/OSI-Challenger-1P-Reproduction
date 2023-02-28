@@ -1,4 +1,13 @@
 import pygame
+import threading
+import sched, time
+
+HAS_KEYBOARD = False
+try:
+    import RPi.GPIO as GPIO
+    HAS_KEYBOARD = True
+except:
+    pass
 
 # The keyboard is mapped into a 1K block of memory at DF00-DFFF, although it
 #  only uses 1 byte.
@@ -21,6 +30,17 @@ class Keyboard:
     KEY_REPEAT = pygame.K_END
     KEY_RESET = pygame.K_DELETE
     KEY_COLON = pygame.K_COLON
+    
+    # Physical Keyboard Pins
+    KB_STROBE = 4
+    KB_0 = 5    # Key code bits.
+    KB_1 = 6
+    KB_2 = 12
+    KB_3 = 13
+    KB_4 = 19
+    KB_5 = 16
+    KB_6 = 26
+    KB_7 = 20
 
     """
      * There's no real storage associated with the keyboard, just an 8x8 matrix
@@ -67,8 +87,12 @@ class Keyboard:
      *  (3) This position is the REPEAT key
      *  (4) This position is the ESC key
      """
-
+    # Keys mapped to rows and columns.
     keys = []
+    
+    # Create an instance of the scheduler
+    scheduler = sched.scheduler()
+    
     
     INVERT_KEY = False
 
@@ -146,6 +170,21 @@ class Keyboard:
         self.addKey(self.KEY_ESC, 0, 0, 5)
         self.addKey(self.KEY_REPEAT, 0, 0, 7)
         self.addKey('^', 0, 2, 3)
+        
+        if HAS_KEYBOARD:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self.KB_STROBE, GPIO.IN)
+            GPIO.setup(self.KB_0, GPIO.IN)
+            GPIO.setup(self.KB_1, GPIO.IN) 
+            GPIO.setup(self.KB_2, GPIO.IN)
+            GPIO.setup(self.KB_3, GPIO.IN)
+            GPIO.setup(self.KB_4, GPIO.IN)
+            GPIO.setup(self.KB_5, GPIO.IN)
+            GPIO.setup(self.KB_6, GPIO.IN)
+            GPIO.setup(self.KB_7, GPIO.IN)
+            
+            # Setup some callbacks for the hardware keybpard.
+            GPIO.add_event_detect(self.KB_STROBE, GPIO.FALLING, callback=self.hw_pressKey)
 
         # Start with SHIFTKOCK pressed
         self.pressKey(self.KEY_SHIFTLOCK)
@@ -201,6 +240,30 @@ class Keyboard:
             else:
                 return self.readByte()
             
+    def hw_getKey(self):
+        key = 0
+        if HAS_KEYBOARD:
+            if GPIO.input(self.KB_0): key = key | 0b00000001
+            if GPIO.input(self.KB_1): key = key | 0b00000010
+            if GPIO.input(self.KB_2): key = key | 0b00000100
+            if GPIO.input(self.KB_3): key = key | 0b00001000
+            if GPIO.input(self.KB_4): key = key | 0b00010000
+            if GPIO.input(self.KB_5): key = key | 0b00100000
+            if GPIO.input(self.KB_6): key = key | 0b01000000
+            if GPIO.input(self.KB_7): key = key | 0b10000000
+        return key
+    
+    # Handle hardware keys presses and releases.
+    def hw_pressKey(self, channel):
+        key = self.hw_getKey()
+        print(key)
+        self.pressKey(key)
+        self.scheduler.enter(.1, 1, self.hw_releaseKey, argument=(key,))
+        self.scheduler.run()
+        
+    def hw_releaseKey(self, key):
+        print("release")
+        self.releaseKey(key)
 
     # Handle key presses and releases.
     def pressKey(self, key):
