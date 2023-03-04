@@ -93,8 +93,11 @@ class Keyboard:
     # Create an instance of the scheduler
     scheduler = sched.scheduler()
     
-    
+    # Depending on the model of Challenger the keyboard pins may have to be inverted when read and written.
     INVERT_KEY = False
+    
+    # Have to feed hardware keys back to the enulator if we are in a popup.
+    inPopup = False
 
     def __init__(self):
         self.kbport = 0xff   # Default is to return nothing.
@@ -107,7 +110,7 @@ class Keyboard:
             self.matrix[i] = 0xff
             
         # Define keys that need to have shift applied.
-        self.shift_keys = {ord("="), ord("\'")}
+        self.shift_keys = {ord("="), ord("\'"), ord("\""), ord("!"), ord("#"), ord("$"), ord("%"), ord("&"), ord("("), ord(")"), ord("*"), ord("+"), ord("<"), ord(">"), ord("?")}
         
         # Define the supported keys
         self.keys = {}
@@ -163,7 +166,7 @@ class Keyboard:
         self.addKey(self.KEY_LCTRL, 0, 0, 6)
         self.addKey(self.KEY_RCTRL, 0, 0, 6)
         self.addKey('\\', 0, 5, 6)
-        self.addKey('[', '*', 6, 4)    # Note implements the : key.
+        self.addKey(':', '*', 6, 4)    # Note implements the : key.
         self.addKey(']', 0, 2, 2)
         self.addKey('_', 0, 5, 5)
         self.addKey(self.KEY_LINEFEED, 0, 5, 4)
@@ -256,14 +259,49 @@ class Keyboard:
     # Handle hardware keys presses and releases.
     def hw_pressKey(self, channel):
         key = self.hw_getKey()
-        print(key)
-        self.pressKey(key)
-        self.scheduler.enter(.1, 1, self.hw_releaseKey, argument=(key,))
-        self.scheduler.run()
         
-    def hw_releaseKey(self, key):
-        print("release")
-        self.releaseKey(key)
+        # Handle CTRL-C. Have to ensure that ctrl gets registered.
+        if key == 3:
+            # Send the CTRL signal and a C.
+            self.pressKey(self.KEY_LCTRL)
+            self.pressKey(99)
+            
+            # Schedule a key release for both the CTRL signal and C.
+            self.scheduler.enter(.1, 1, self.releaseKey, argument=(self.KEY_LCTRL,))
+            self.scheduler.enter(.1, 1, self.releaseKey, argument=(99,))
+            self.scheduler.run()
+            return
+            
+        # If this is one of the special CTRL keys kick them back to the emulator via the event queue.
+        if key < 32:
+            unicode = None
+            if key == 24:
+                unicode = '\x18' # CTRL-X
+            elif key == 12:
+                unicode = '\x0c' # CTRL-L
+            elif key == 19:
+                unicode = '\x13' # CTRL-S
+            if unicode != None:
+                # Let the emulator handle these keys.
+                down_event = pygame.event.Event(pygame.KEYDOWN, unicode=unicode, key=key, mod=0)
+                pygame.event.post(down_event)
+                return
+            
+        # Translate a few keys.
+        if key == 91: key = 8 # RUBOUT
+        if key == 9: key = 27 # ESC
+        
+        # If the emulator is in the load or save popup pass the key back to the emulator.
+        if self.inPopup:
+            # Let the emulator handle these keys.
+            down_event = pygame.event.Event(pygame.KEYDOWN, unicode=chr(key), key=key, mod=0)
+            pygame.event.post(down_event)
+            return
+        
+        # Press the key and schedule a release for that key.
+        self.pressKey(key)
+        self.scheduler.enter(.1, 1, self.releaseKey, argument=(key,))
+        self.scheduler.run()
 
     # Handle key presses and releases.
     def pressKey(self, key):
@@ -274,7 +312,7 @@ class Keyboard:
                 if key in self.shift_keys:
                     self.matrix[0] &= 0b11111101
 
-    def releaseKey(self, key): 
+    def releaseKey(self, key):
         if key in self.keys:
             k = self.keys[key]
             if k != None:

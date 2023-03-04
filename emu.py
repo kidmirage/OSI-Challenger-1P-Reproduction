@@ -5,7 +5,6 @@ from mmu import MMU
 from keyboard import Keyboard
 from cassette import Cassette
 
-
 class Emulator:
     """
     
@@ -122,7 +121,7 @@ class Emulator:
     
         # Create the screen.
         if self.full_screen:
-            self.screen = pygame.display.set_mode(self.show_size, pygame.NOFRAME+pygame.FULLSCREEN)
+            self.screen = pygame.display.set_mode(self.show_size, pygame.FULLSCREEN)
             pygame.mouse.set_visible(0)
         else:
             self.screen = pygame.display.set_mode(self.show_size)
@@ -193,7 +192,12 @@ class Emulator:
         for i in range(0, len(text)):
             memory[address+offset+i] = ord(text[i])
             
-    def save_popup(self, memory, address):
+    def save_popup(self):
+        
+        self.keyboard.inPopup = True
+        
+        memory = self.mmu.memory
+        address = self.VIDEO_ADDRESS
         
         # Save the screen memory.
         save_memory = memory[address:address+self.VIDEO_MEMORY_SIZE]
@@ -278,11 +282,18 @@ class Emulator:
         memory[address:address+self.VIDEO_MEMORY_SIZE] = save_memory
         self._refresh()
         
-    def load_popup(self, memory, address):
+        self.keyboard.inPopup = False
+        
+    def load_popup(self):
+        
+        self.keyboard.inPopup = True
         
         # Max number of files to show in the list.
         MAX_FILES = 15
         FIRST_FILE_ROW = 5
+        
+        memory = self.mmu.memory
+        address = self.VIDEO_ADDRESS
         
         # Save the screen memory.
         save_memory = memory[address:address+self.VIDEO_MEMORY_SIZE]
@@ -372,6 +383,12 @@ class Emulator:
         # Restore the screen.
         memory[address:address+self.VIDEO_MEMORY_SIZE] = save_memory
         self._refresh()
+        
+        self.keyboard.inPopup = False
+    
+    # Restart the monitor.
+    def reset(self):
+        self.cpu.r.pc = 0xff00
                 
     def run(self):
         """
@@ -397,16 +414,12 @@ class Emulator:
                     if event.key == pygame.K_CAPSLOCK:
                         if pygame.key.get_mods() & pygame.KMOD_CAPS > 0:
                             self.keyboard.pressKey(event.key) 
-                    elif event.key == pygame.K_DELETE:
-                        # Restart the monitor.
-                        self.cpu.r.pc = 0xff00
-                    elif event.key == pygame.K_F1:
-                        self.load_popup(self.mmu.memory, self.VIDEO_ADDRESS)
-                    elif event.key == pygame.K_F2:
-                        self.save_popup(self.mmu.memory, self.VIDEO_ADDRESS)
-                    elif event.key == pygame.K_F3:
-                        for i in range(0, 255):
-                            self.mmu.memory[self.VIDEO_ADDRESS+256+i] = i
+                    elif event.unicode == '\x18': # CTRL-X
+                        self.reset()
+                    elif event.unicode == '\x0c': # CTRL-L
+                        self.load_popup()
+                    elif event.unicode == '\x13': # CTRL-S
+                        self.save_popup()
                     else:
                         if event.mod & (self.keyboard.KEY_LCTRL | self.keyboard.KEY_RCTRL) > 0:
                             key = event.key
@@ -428,8 +441,8 @@ class Emulator:
                                 key = ord(event.unicode)
                             except:
                                 key = event.key
-                        self.keyboard.releaseKey(key)  
-  
+                        self.keyboard.releaseKey(key)
+                        
             # This will run the CPU for about 4K cycles.
             for _ in range(1000):
                 self.cpu.step()
