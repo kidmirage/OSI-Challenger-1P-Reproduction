@@ -275,7 +275,9 @@ class Keyboard:
         # If this is one of the special CTRL keys kick them back to the emulator via the event queue.
         if key < 32:
             unicode = None
-            if key == 24:
+            if key == 5:
+                unicode = '\x12' # CTRL-R
+            elif key == 24:
                 unicode = '\x18' # CTRL-X
             elif key == 12:
                 unicode = '\x0c' # CTRL-L

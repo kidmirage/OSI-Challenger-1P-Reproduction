@@ -98,6 +98,37 @@ class CPU:
         self.cc = 0
         opcode = self.nextByte()
         self.ops[opcode]()
+        
+    def ten_steps(self):
+        self.cc = 0
+        
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
+        opcode = self.mmu.read(self.r.pc)
+        self.r.pc += 1
+        self.ops[opcode]()
 
     def execute(self, instruction):
         """

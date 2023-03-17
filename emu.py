@@ -25,7 +25,7 @@ class Emulator:
     WHITE = 0xFFFFFF
     GREEN = 0x00FF00
     AMBER = 0xFFBF00
-    CAPTION_FORMAT = 'Challenger 1P ({})'
+    CAPTION_FORMAT = 'Challenger 4P ({})'
     
     VIDEO_MEMORY_SIZE = 1024
     VIDEO_ROW_SIZE = 32
@@ -76,13 +76,34 @@ class Emulator:
         
         # Create the CPU with the MMU and the starting program counter address.
         self.cpu = CPU(self.mmu, 0xFF00)
+        
+        # Determine the monitor screen size.
+        pygame.init()
+        infos = pygame.display.Info()
+        self.screen_width = infos.current_w
+        self.screen_height = infos.current_h
 
-        # Class variables.
+        # Display variables.
+        self.screen_scale = 1
+        self.full_screen = False
+        self.x_offset = 0
+        self.y_offset = 0
+        
+        # If the screen has a width of 720 assume it is a composite monitor.
+        if self.screen_width == 720:
+            self.full_screen = True
+            if self.VIDEO_ROW_SIZE == 64:
+                self.x_offset = 56
+                self.y_offset = 16
+        else:
+            self.screen_scale = 2
+        
+        # Define the screen.
         self.character_width = 8
         self.character_height = 8                       
-        self.display_height = self.character_height * self.VIDEO_NUM_ROWS
-        self.display_width = self.character_width * self.VIDEO_ROW_SIZE
-        self.show_size = (self.display_width*2, self.display_height*2)
+        self.display_height = self.character_height * self.VIDEO_NUM_ROWS + self.y_offset
+        self.display_width = self.character_width * self.VIDEO_ROW_SIZE + self.x_offset * 2
+        self.show_size = (self.display_width*self.screen_scale, self.display_height*self.screen_scale)
         self.current_display_line = 0
         self.cursor_position = -1
         self.cursor_character = ''
@@ -97,7 +118,10 @@ class Emulator:
         self.color_depth = 8
         self.is_cursor = False
         self.blinking_cursor = False
-        self.full_screen = False
+        
+        # Character position into the display based on integer position in video memory.
+        self.x_pos = []
+        self.y_pos = []
         
         # Create the display characters based on the original C1P ROM.
         self.characters = []
@@ -118,39 +142,38 @@ class Emulator:
                             image.set_at((col, row), fore)
                         bit = bit >> 1
             self.characters.append(image)
-    
+            
+        # Calculate the character positions on the screen based on the integer position into the video memory.
+        x = 0
+        y = 0
+        for i in range(self.VIDEO_MEMORY_SIZE):
+            # Remember the position for this video memory offset.
+            self.x_pos.append(x+self.x_offset)
+            self.y_pos.append(y+self.y_offset)
+            
+            # Get ready for the next character.
+            x += self.character_width;
+            if x == self.character_width*self.VIDEO_ROW_SIZE:
+                x = 0;
+                y += self.character_height
+        
         # Create the screen.
         if self.full_screen:
-            self.screen = pygame.display.set_mode(self.show_size, pygame.FULLSCREEN)
+            self.show_size = (720, 480)
+            self.screen = pygame.display.set_mode(self.show_size, pygame.FULLSCREEN+pygame.NOFRAME)
             pygame.mouse.set_visible(0)
         else:
             self.screen = pygame.display.set_mode(self.show_size)
             pygame.display.set_caption(self.CAPTION_FORMAT.format(path))
-            
         
         # Build the screen here.
+        print(self.show_size)
+        print(self.display_width, self.display_height)
         self.setup = pygame.Surface((self.display_width, self.display_height))
-                
         
         # Clear the screen.
         self.screen.fill(self.BLACK)
-       
-        # Define a buffer with the current screen contents.
-        self.screen_buffer = bytearray(self.VIDEO_MEMORY_SIZE)
         
-       
-    # Blit the character passed to the display screen at the coordinates passed.
-    def _blit_character(self, c, x, y):
-        buffer_pos = int(x/self.character_width) + int((y/self.character_height)*self.VIDEO_ROW_SIZE)
-        buffer_c = self.screen_buffer[buffer_pos]
-        if buffer_c != c:
-            # Only blit the character to the screen if it's different than the current one.
-            if self.hide_control_characters and c < 32:
-                # Blank control characters if switch set.
-                self.setup.blit(self.characters[32],(x,y))
-            else:
-                self.setup.blit(self.characters[c],(x,y))
-            self.screen_buffer[buffer_pos] = c
     
     # Update the screen with the characters from the shared display memory.
     def _refresh(self):
@@ -163,24 +186,24 @@ class Emulator:
         x = 0
         y = 0
         changed = False
-        for i in range(self.VIDEO_ADDRESS, self.VIDEO_ADDRESS+self.VIDEO_MEMORY_SIZE):
-            c = self.mmu.memory[i]
+        for i in range(self.VIDEO_MEMORY_SIZE):
+            c = self.mmu.memory[self.VIDEO_ADDRESS + i]
             
-            if c != self.video_cache[i-self.VIDEO_ADDRESS]:
+            if c != self.video_cache[i]:
                 
-                # Blit the character to the display.
-                self._blit_character(c,x,y)
+                # Only blit the character to the screen if it's different than the current one.
+                if self.hide_control_characters and c < 32:
+                    # Blank control characters if switch set.
+                    self.setup.blit(self.characters[32], (self.x_pos[i], self.y_pos[i]))
+                else:
+                    self.setup.blit(self.characters[c], (self.x_pos[i], self.y_pos[i])) 
                 
                 # Remember that the screen has been uopdated and what it was changed to.
-                self.video_cache[i-self.VIDEO_ADDRESS] = c
-                changed = True
+                self.video_cache[i] = c
                 
+                # Have to refresh screen
+                changed = True
 
-            # Get ready for the next character.
-            x += self.character_width;
-            if x == self.character_width*self.VIDEO_ROW_SIZE:
-                x = 0;
-                y += self.character_height
                 
         if changed == True:
             pygame.transform.scale(self.setup, self.show_size, self.screen)
@@ -413,9 +436,11 @@ class Emulator:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_CAPSLOCK:
                         if pygame.key.get_mods() & pygame.KMOD_CAPS > 0:
-                            self.keyboard.pressKey(event.key) 
-                    elif event.unicode == '\x18': # CTRL-X
+                            self.keyboard.pressKey(event.key)
+                    elif event.unicode == '\x12': # CTRL-R
                         self.reset()
+                    elif event.unicode == '\x18': # CTRL-X
+                        exit()
                     elif event.unicode == '\x0c': # CTRL-L
                         self.load_popup()
                     elif event.unicode == '\x13': # CTRL-S
@@ -444,8 +469,7 @@ class Emulator:
                         self.keyboard.releaseKey(key)
                         
             # This will run the CPU for about 4K cycles.
-            for _ in range(1000):
-                self.cpu.step()
-            
+            for _ in range(500):
+                self.cpu.ten_steps()
             self._refresh()
                 
