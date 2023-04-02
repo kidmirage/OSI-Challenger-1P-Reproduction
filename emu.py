@@ -4,6 +4,7 @@ from cpu import CPU
 from mmu import MMU
 from keyboard import Keyboard
 from cassette import Cassette
+import time 
 
 class Emulator:
     """
@@ -30,7 +31,7 @@ class Emulator:
     VIDEO_MEMORY_SIZE = 1024
     VIDEO_ROW_SIZE = 32
     VIDEO_NUM_ROWS = 32
-    
+   
     
     def __init__(self, path=None):
         # Manage the transformation between actual key presses and what the
@@ -167,8 +168,6 @@ class Emulator:
             pygame.display.set_caption(self.CAPTION_FORMAT.format(path))
         
         # Build the screen here.
-        print(self.show_size)
-        print(self.display_width, self.display_height)
         self.setup = pygame.Surface((self.display_width, self.display_height))
         
         # Clear the screen.
@@ -314,6 +313,7 @@ class Emulator:
         # Max number of files to show in the list.
         MAX_FILES = 15
         FIRST_FILE_ROW = 5
+                                
         
         memory = self.mmu.memory
         address = self.VIDEO_ADDRESS
@@ -327,7 +327,7 @@ class Emulator:
         # Get a list of the .BAS files in the TAPEs folder.
         basic_files = []
         for file in os.listdir("TAPEs"):
-            if file.lower().endswith(".bas"):
+            if file.lower().endswith(".bas") or file.lower().endswith(".mon"):
                 basic_files.append(file)
                 
         # Show the static text.
@@ -468,8 +468,8 @@ class Emulator:
                                 key = event.key
                         self.keyboard.releaseKey(key)
                         
-            # This will run the CPU for about 4K cycles.
-            for _ in range(500):
-                self.cpu.ten_steps()
+            # This will run the CPU for about 5K cycles.
+            for _ in range(5000):
+                self.cpu.step()
             self._refresh()
-                
+            

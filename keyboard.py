@@ -4,8 +4,9 @@ import sched, time
 
 HAS_KEYBOARD = False
 try:
-    import RPi.GPIO as GPIO
+    import pigpio
     HAS_KEYBOARD = True
+    GPIO = pigpio.pi()
 except:
     pass
 
@@ -175,19 +176,18 @@ class Keyboard:
         self.addKey('^', 0, 2, 3)
         
         if HAS_KEYBOARD:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self.KB_STROBE, GPIO.IN)
-            GPIO.setup(self.KB_0, GPIO.IN)
-            GPIO.setup(self.KB_1, GPIO.IN) 
-            GPIO.setup(self.KB_2, GPIO.IN)
-            GPIO.setup(self.KB_3, GPIO.IN)
-            GPIO.setup(self.KB_4, GPIO.IN)
-            GPIO.setup(self.KB_5, GPIO.IN)
-            GPIO.setup(self.KB_6, GPIO.IN)
-            GPIO.setup(self.KB_7, GPIO.IN)
+            GPIO.set_mode(self.KB_STROBE, pigpio.INPUT)
+            GPIO.set_mode(self.KB_0, pigpio.INPUT)
+            GPIO.set_mode(self.KB_1, pigpio.INPUT) 
+            GPIO.set_mode(self.KB_2, pigpio.INPUT)
+            GPIO.set_mode(self.KB_3, pigpio.INPUT)
+            GPIO.set_mode(self.KB_4, pigpio.INPUT)
+            GPIO.set_mode(self.KB_5, pigpio.INPUT)
+            GPIO.set_mode(self.KB_6, pigpio.INPUT)
+            GPIO.set_mode(self.KB_7, pigpio.INPUT)
             
             # Setup some callbacks for the hardware keybpard.
-            GPIO.add_event_detect(self.KB_STROBE, GPIO.FALLING, callback=self.hw_pressKey)
+            GPIO.callback(self.KB_STROBE, pigpio.FALLING_EDGE, self.hw_pressKey)
 
         # Start with SHIFTKOCK pressed
         self.pressKey(self.KEY_SHIFTLOCK)
@@ -246,18 +246,18 @@ class Keyboard:
     def hw_getKey(self):
         key = 0
         if HAS_KEYBOARD:
-            if GPIO.input(self.KB_0): key = key | 0b00000001
-            if GPIO.input(self.KB_1): key = key | 0b00000010
-            if GPIO.input(self.KB_2): key = key | 0b00000100
-            if GPIO.input(self.KB_3): key = key | 0b00001000
-            if GPIO.input(self.KB_4): key = key | 0b00010000
-            if GPIO.input(self.KB_5): key = key | 0b00100000
-            if GPIO.input(self.KB_6): key = key | 0b01000000
-            if GPIO.input(self.KB_7): key = key | 0b10000000
+            if GPIO.read(self.KB_0): key = key | 0b00000001
+            if GPIO.read(self.KB_1): key = key | 0b00000010
+            if GPIO.read(self.KB_2): key = key | 0b00000100
+            if GPIO.read(self.KB_3): key = key | 0b00001000
+            if GPIO.read(self.KB_4): key = key | 0b00010000
+            if GPIO.read(self.KB_5): key = key | 0b00100000
+            if GPIO.read(self.KB_6): key = key | 0b01000000
+            if GPIO.read(self.KB_7): key = key | 0b10000000
         return key
     
     # Handle hardware keys presses and releases.
-    def hw_pressKey(self, channel):
+    def hw_pressKey(self, channel, edge, tick):
         key = self.hw_getKey()
         
         # Handle CTRL-C. Have to ensure that ctrl gets registered.
