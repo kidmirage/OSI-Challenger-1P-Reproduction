@@ -50,7 +50,6 @@ class Cassette:
             # Control character.
             pass
         elif addr == self.READ_WRITE:
-            print(b)
             if self.acia_status and self.TX_READY > 0 and self.save_filename != None and b > 0:
                 with open(self.save_filename, 'a') as f:
                     f.write(chr(b))

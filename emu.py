@@ -69,7 +69,7 @@ class Emulator:
                 (self.CHARSET_ADDRESS, 2048, True, charset), # Character Generator.
                 (self.IO_ADDRESS, 6144), # Memory mapped IO
                 (self.MEMORY_BLOCK, 1792), # Memory used by 4P
-                (self.MONITOR_ADDRESS, 2048, True, monitor), # Advanced Monitor.
+                (self.MONITOR_ADDRESS, 2048, True, monitor), # Advanced Monikeyboardtor.
                 (self.KEYBOARD_ADDRESS, 2, False, None, 0, self.keyboard.callback), # Keyboard Control.
                 (self.CASSETTE_ADDRESS, 2, False, None, 0, self.cassette.callback) # Cassette Control.
                 
@@ -217,6 +217,7 @@ class Emulator:
     def save_popup(self):
         
         self.keyboard.inPopup = True
+        self.keyboard.releaseKey(306) # Clear the control key.
         
         memory = self.mmu.memory
         address = self.VIDEO_ADDRESS
@@ -303,12 +304,12 @@ class Emulator:
         # Restore the screen.
         memory[address:address+self.VIDEO_MEMORY_SIZE] = save_memory
         self._refresh()
-        
         self.keyboard.inPopup = False
         
     def load_popup(self):
         
         self.keyboard.inPopup = True
+        self.keyboard.releaseKey(306) # Clear the control key.
         
         # Max number of files to show in the list.
         MAX_FILES = 15
@@ -406,7 +407,6 @@ class Emulator:
         # Restore the screen.
         memory[address:address+self.VIDEO_MEMORY_SIZE] = save_memory
         self._refresh()
-        
         self.keyboard.inPopup = False
     
     # Restart the monitor.
@@ -426,8 +426,6 @@ class Emulator:
         
         # Main loop.
         while True:
-            
-            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()

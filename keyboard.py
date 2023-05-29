@@ -192,6 +192,11 @@ class Keyboard:
         # Start with SHIFTKOCK pressed
         self.pressKey(self.KEY_SHIFTLOCK)
         
+    # Clear the keyboard matrix.
+    def clearMatrix(self):
+        for i in range (len(self.matrix)):
+            self.matrix[i] = 0xff
+        
     # Dump the matrix.
     def dumpMatrix(self, label, key):
         print(label,key,end=" ")
@@ -275,7 +280,7 @@ class Keyboard:
         # If this is one of the special CTRL keys kick them back to the emulator via the event queue.
         if key < 32:
             unicode = None
-            if key == 5:
+            if key == 18:
                 unicode = '\x12' # CTRL-R
             elif key == 24:
                 unicode = '\x18' # CTRL-X
